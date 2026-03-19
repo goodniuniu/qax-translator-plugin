@@ -1,0 +1,16 @@
+{
+  "ExtensionInstallForcelist": {
+    "Value": [
+      "qax-translator-plugin;file:///opt/qax-translator-plugin/update.xml"
+    ],
+    "Status": "enabled"
+  },
+  "ExtensionInstallSources": {
+    "Value": [
+      "file:///*",
+      "http://localhost/*",
+      "http://127.0.0.1/*"
+    ],
+    "Status": "enabled"
+  }
+}
