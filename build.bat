@@ -3,6 +3,7 @@ REM QAX 智能划词翻译插件 - Windows 打包构建脚本
 REM 在开发环境（可联网）运行，生成完整安装包
 REM 用户环境（内网）无需额外软件即可安装
 
+chcp 65001 >nul 2>&1
 setlocal enabledelayedexpansion
 
 REM 配置
@@ -239,7 +240,7 @@ echo.
 echo 生成的文件：
 dir /b "%DIST_DIR%"
 echo.
-echo 📦 分发方式：
+echo [分发方式]
 echo.
 echo   方式1：复制整个目录
 echo     xcopy /s /i /e "%DIST_DIR%" 目标路径
@@ -247,11 +248,11 @@ echo.
 echo   方式2：复制 ZIP 文件
 echo     复制 %PLUGIN_NAME%-v%VERSION%.zip 到目标电脑
 echo.
-echo 👤 用户安装方式：
+echo [用户安装方式]
 echo     1. 解压 ZIP 文件
 echo     2. 打开 chrome://extensions/
-echo     3. 开启「开发者模式」
-echo     4. 点击「加载已解压的扩展程序」
+echo     3. 开启"开发者模式"
+echo     4. 点击"加载已解压的扩展程序"
 echo     5. 选择解压后的文件夹
 echo.
 echo ========================================

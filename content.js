@@ -358,11 +358,29 @@
   /**
    * 执行翻译 - 增强错误处理和研判展示
    */
+  /**
+   * 检查扩展上下文是否有效
+   */
+  function isExtensionContextValid() {
+    try {
+      return typeof chrome !== 'undefined' &&
+             chrome.runtime &&
+             chrome.runtime.sendMessage;
+    } catch (e) {
+      return false;
+    }
+  }
+
   async function doTranslate(text) {
     if (isTranslating) return;
     isTranslating = true;
 
     try {
+      // 检查扩展上下文有效性
+      if (!isExtensionContextValid()) {
+        throw new Error('扩展上下文已失效，请刷新页面后重试');
+      }
+
       const position = getSelectionPosition();
       if (!position) {
         isTranslating = false;
@@ -387,6 +405,11 @@
         console.log('[QAX Translator] Service Worker 已唤醒');
       } catch (pingError) {
         console.warn('[QAX Translator] Service Worker 唤醒失败，尝试直接发送翻译请求:', pingError.message);
+      }
+
+      // 再次检查扩展上下文（在 ping 之后可能已失效）
+      if (!isExtensionContextValid()) {
+        throw new Error('扩展上下文已失效，请刷新页面后重试');
       }
 
       // 添加超时处理
@@ -431,7 +454,12 @@
       errorMsg += `错误信息: ${error.message || '无'}\n\n`;
       
       // 添加排查建议
-      if (error.message && error.message.includes('timeout')) {
+      if (error.message && error.message.includes('扩展上下文已失效')) {
+        errorMsg += '💡 解决建议：\n';
+        errorMsg += '• 扩展已被重新加载或禁用\n';
+        errorMsg += '• 请刷新当前网页（F5）\n';
+        errorMsg += '• 或者重新启动浏览器';
+      } else if (error.message && error.message.includes('timeout')) {
         errorMsg += '💡 可能原因：\n';
         errorMsg += '• 后端服务响应缓慢\n';
         errorMsg += '• 网络连接不稳定\n';
