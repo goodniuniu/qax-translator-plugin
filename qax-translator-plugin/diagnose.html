@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>QAX 翻译插件 - 诊断工具</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Noto Sans CJK SC', 'Microsoft YaHei', sans-serif;
+      font-size: 14px;
+      line-height: 1.6;
+      color: #333;
+      background: #f5f7fa;
+      padding: 20px;
+    }
+
+    .container {
+      max-width: 900px;
+      margin: 0 auto;
+      background: #fff;
+      border-radius: 8px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+      overflow: hidden;
+    }
+
+    .header {
+      background: linear-gradient(135deg, #2b579a 0%, #1e3d6e 100%);
+      color: #fff;
+      padding: 20px;
+    }
+
+    .header h1 {
+      font-size: 20px;
+      font-weight: 600;
+    }
+
+    .header p {
+      font-size: 13px;
+      opacity: 0.9;
+      margin-top: 5px;
+    }
+
+    .content {
+      padding: 20px;
+    }
+
+    .section {
+      margin-bottom: 24px;
+      padding-bottom: 24px;
+      border-bottom: 1px solid #e0e4e8;
+    }
+
+    .section:last-child {
+      border-bottom: none;
+      margin-bottom: 0;
+    }
+
+    .section-title {
+      font-size: 16px;
+      font-weight: 600;
+      color: #2b579a;
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .form-group {
+      margin-bottom: 16px;
+    }
+
+    .form-label {
+      display: block;
+      font-size: 13px;
+      font-weight: 500;
+      margin-bottom: 6px;
+      color: #333;
+    }
+
+    .form-input {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1px solid #d0d4d8;
+      border-radius: 4px;
+      font-size: 13px;
+      font-family: monospace;
+    }
+
+    .form-input:focus {
+      outline: none;
+      border-color: #2b579a;
+      box-shadow: 0 0 0 3px rgba(43, 87, 154, 0.1);
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 10px 16px;
+      border: none;
+      border-radius: 4px;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .btn-primary {
+      background: #2b579a;
+      color: #fff;
+    }
+
+    .btn-primary:hover {
+      background: #1e3d6e;
+    }
+
+    .btn-secondary {
+      background: #f0f2f5;
+      color: #333;
+    }
+
+    .btn-secondary:hover {
+      background: #e0e4e8;
+    }
+
+    .btn-group {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .log-container {
+      background: #1e1e1e;
+      color: #d4d4d4;
+      border-radius: 4px;
+      padding: 12px;
+      font-family: 'Consolas', 'Monaco', monospace;
+      font-size: 12px;
+      line-height: 1.5;
+      max-height: 400px;
+      overflow-y: auto;
+      white-space: pre-wrap;
+      word-break: break-all;
+    }
+
+    .log-time {
+      color: #858585;
+    }
+
+    .log-info {
+      color: #4fc1ff;
+    }
+
+    .log-success {
+      color: #4ec9b0;
+    }
+
+    .log-error {
+      color: #f48771;
+    }
+
+    .log-warn {
+      color: #dcdcaa;
+    }
+
+    .result-box {
+      background: #f8f9fa;
+      border: 1px solid #e0e4e8;
+      border-radius: 4px;
+      padding: 12px;
+      margin-top: 12px;
+    }
+
+    .result-box.success {
+      background: #e8f5e9;
+      border-color: #4caf50;
+    }
+
+    .result-box.error {
+      background: #ffebee;
+      border-color: #f44336;
+    }
+
+    .result-title {
+      font-weight: 600;
+      margin-bottom: 8px;
+    }
+
+    .result-box.success .result-title {
+      color: #2e7d32;
+    }
+
+    .result-box.error .result-title {
+      color: #c62828;
+    }
+
+    .test-text {
+      font-family: monospace;
+      background: #f0f2f5;
+      padding: 2px 6px;
+      border-radius: 3px;
+    }
+
+    .tip {
+      background: #e3f2fd;
+      border-left: 4px solid #2196f3;
+      padding: 12px;
+      border-radius: 0 4px 4px 0;
+      margin-top: 12px;
+    }
+
+    .tip-title {
+      font-weight: 600;
+      color: #1976d2;
+      margin-bottom: 4px;
+    }
+
+    .hidden {
+      display: none;
+    }
+
+    .status-indicator {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      border-radius: 12px;
+      font-size: 12px;
+      font-weight: 500;
+    }
+
+    .status-ok {
+      background: #e8f5e9;
+      color: #2e7d32;
+    }
+
+    .status-error {
+      background: #ffebee;
+      color: #c62828;
+    }
+
+    .status-warn {
+      background: #fff3e0;
+      color: #ef6c00;
+    }
+
+    /* 研判区域样式 */
+    .analysis-section {
+      background: linear-gradient(135deg, #f5f7fa 0%, #e8ecf1 100%);
+      border-radius: 4px;
+      padding: 12px;
+      border-left: 3px solid #2b579a;
+      margin-bottom: 16px;
+    }
+
+    .analysis-badge {
+      display: inline-block;
+      padding: 2px 10px;
+      background: #2b579a;
+      color: #fff;
+      border-radius: 12px;
+      font-size: 11px;
+      font-weight: 600;
+      margin-left: 8px;
+    }
+
+    .analysis-content {
+      margin-top: 8px;
+      padding: 8px;
+      background: rgba(255, 255, 255, 0.6);
+      border-radius: 4px;
+    }
+
+    .analysis-item {
+      display: flex;
+      align-items: center;
+      padding: 4px 0;
+      font-size: 13px;
+    }
+
+    .analysis-label {
+      color: #666;
+      min-width: 80px;
+      flex-shrink: 0;
+    }
+
+    .analysis-value {
+      color: #2b579a;
+      font-weight: 500;
+    }
+
+    .models-list {
+      background: #f8f9fa;
+      border: 1px solid #e0e4e8;
+      border-radius: 4px;
+      padding: 12px;
+      max-height: 150px;
+      overflow-y: auto;
+      margin-top: 8px;
+    }
+
+    .model-item {
+      padding: 4px 0;
+      border-bottom: 1px solid #eee;
+      font-size: 13px;
+    }
+
+    .model-item:last-child {
+      border-bottom: none;
+    }
+
+    .model-item.selected {
+      font-weight: bold;
+      color: #2b579a;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>🔧 QAX 翻译插件诊断工具</h1>
+      <p>帮助您排查 API 连接和配置问题</p>
+    </div>
+
+    <div class="content">
+      <!-- 配置检查 -->
+      <div class="section">
+        <div class="section-title">📋 当前配置</div>
+        <div class="form-group">
+          <label class="form-label">API 地址</label>
+          <input type="text" id="apiUrl" class="form-input" readonly>
+        </div>
+        <div class="form-group">
+          <label class="form-label">模型名称</label>
+          <input type="text" id="modelName" class="form-input" readonly>
+        </div>
+        <div class="form-group">
+          <label class="form-label">API Key</label>
+          <input type="password" id="apiKey" class="form-input" readonly placeholder="未设置">
+        </div>
+        <div class="btn-group">
+          <button class="btn btn-secondary" id="refreshConfig">🔄 刷新配置</button>
+          <button class="btn btn-primary" id="openSettings">⚙️ 打开设置</button>
+        </div>
+        
+        <!-- 可用模型列表 -->
+        <div class="form-group" style="margin-top: 16px;">
+          <label class="form-label">可用模型列表</label>
+          <div id="modelsList" class="models-list">
+            <span style="color: #999;">点击"获取模型列表"按钮查询...</span>
+          </div>
+          <button class="btn btn-secondary" id="fetchModels" style="margin-top: 8px;">📋 获取模型列表</button>
+        </div>
+      </div>
+
+      <!-- 基础测试 -->
+      <div class="section">
+        <div class="section-title">🧪 基础连接测试</div>
+        <p style="margin-bottom: 12px; color: #666;">测试 API 服务是否可访问（发送 GET 请求到 <span class="test-text">/models</span>）</p>
+        <div class="btn-group">
+          <button class="btn btn-primary" id="testBasic">🔌 测试基础连接</button>
+        </div>
+        <div id="basicResult"></div>
+      </div>
+
+      <!-- 完整测试 -->
+      <div class="section">
+        <div class="section-title">🚀 完整功能测试</div>
+        <p style="margin-bottom: 12px; color: #666;">发送实际翻译请求（测试 <span class="test-text">/chat/completions</span>）</p>
+        <div class="form-group">
+          <label class="form-label">测试文本</label>
+          <input type="text" id="testText" class="form-input" value="Hello, world!">
+        </div>
+        <div class="btn-group">
+          <button class="btn btn-primary" id="testFull">▶️ 执行翻译测试</button>
+          <button class="btn btn-secondary" id="testChinese">📝 测试中文翻译</button>
+        </div>
+        <div id="fullResult"></div>
+      </div>
+
+      <!-- 日志 -->
+      <div class="section">
+        <div class="section-title">📜 诊断日志</div>
+        <div class="btn-group" style="margin-bottom: 12px;">
+          <button class="btn btn-secondary" id="clearLog">🗑️ 清空日志</button>
+          <button class="btn btn-secondary" id="copyLog">📋 复制日志</button>
+        </div>
+        <div class="log-container" id="logContainer">
+          <span class="log-time">[等待开始]</span> 点击上方按钮开始诊断...
+        </div>
+      </div>
+
+      <!-- 常见问题 -->
+      <div class="section">
+        <div class="section-title">❓ 常见问题</div>
+        
+        <div class="tip">
+          <div class="tip-title">ℹ️ 服务信息（根据管理员反馈）</div>
+          <p>• 部署方式: <strong>vLLM</strong></p>
+          <p>• 可用模型: <strong>MiniMax/MiniMax-M2.5</strong></p>
+          <p>• API 地址: <span class="test-text">http://10.3.4.21:8000/v1</span></p>
+        </div>
+        
+        <div class="tip" style="margin-top: 12px;">
+          <div class="tip-title">HTTP 404 - 接口不存在</div>
+          <p>浏览器访问 <span class="test-text">http://10.3.4.21:8000/v1</span> 返回 {"detail":"Not Found"} 是正常的。</p>
+          <p>正确的 API 地址应该是 <span class="test-text">http://10.3.4.21:8000/v1/chat/completions</span></p>
+          <p>请在设置页面确认 API 地址以 <span class="test-text">/v1</span> 结尾，不要包含 <span class="test-text">/chat/completions</span></p>
+        </div>
+        
+        <div class="tip" style="margin-top: 12px;">
+          <div class="tip-title">连接超时</div>
+          <p>1. 检查网络是否可以访问 <span class="test-text">10.3.4.21:8000</span></p>
+          <p>2. 检查后端服务是否已启动</p>
+          <p>3. 检查防火墙是否放行端口</p>
+        </div>
+        
+        <div class="tip" style="margin-top: 12px;">
+          <div class="tip-title">模型相关（重要）</div>
+          <p>• <strong>推荐做法</strong>：将模型名称留空，让后端自动选择默认模型</p>
+          <p>• 如果需要指定模型，请使用"获取模型列表"功能查看可用模型</p>
+          <p>• 模型名称必须准确，区分大小写</p>
+          <p>• 如果遇到 "Model Not Exist" 错误，请清空模型名称或使用正确的模型名</p>
+        </div>
+        
+        <div class="tip" style="margin-top: 12px;">
+          <div class="tip-title">API Key 设置（重要）</div>
+          <p>• <strong>内部部署服务</strong>（如 10.3.4.21）：通常不需要 API Key，可以留空</p>
+          <p>• <strong>互联网大模型服务</strong>（如 OpenAI、智谱 AI 等）：必须设置正确的 API Key</p>
+          <p>• API Key 会在设置页面配置，此处仅供查看</p>
+          <p>• 如果遇到 HTTP 401 错误，请检查 API Key 是否正确</p>
+        </div>
+        
+        <div class="tip" style="margin-top: 12px;">
+          <div class="tip-title">HTTP 401 错误处理</div>
+          <p>• 错误含义：未授权，需要提供正确的 API Key</p>
+          <p>• 可能原因：</p>
+          <p>  1. 使用了互联网服务但未设置 API Key</p>
+          <p>  2. API Key 填写错误或已过期</p>
+          <p>  3. 内部服务配置了认证但未提供 Key</p>
+          <p>• 解决方案：根据服务类型正确配置 API Key</p>
+        </div>
+        
+        <div class="tip" style="margin-top: 12px;">
+          <div class="tip-title">解析错误处理</div>
+          <p>• 如果看到 "&lt;think&gt;" 标签，说明模型输出了思考过程</p>
+          <p>• 插件已自动处理此情况，请尝试再次测试</p>
+          <p>• 如仍有问题，请联系管理员调整模型提示词配置</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 外部脚本 -->
+  <script src="diagnose.js"></script>
+</body>
+</html>
