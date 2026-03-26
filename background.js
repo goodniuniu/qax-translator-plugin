@@ -456,4 +456,58 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   return false;
 });
 
+// ============================================================
+// 右键菜单功能
+// ============================================================
+
+/**
+ * 创建右键菜单
+ */
+chrome.runtime.onInstalled.addListener(() => {
+  console.log('[QAX Translator] 创建右键菜单...');
+  
+  // 移除已存在的菜单（避免重复）
+  chrome.contextMenus.removeAll(() => {
+    // 创建主菜单项
+    chrome.contextMenus.create({
+      id: 'qax-translate',
+      title: '翻译选中文本',
+      contexts: ['selection']
+    });
+    
+    console.log('[QAX Translator] 右键菜单创建完成');
+  });
+});
+
+/**
+ * 监听右键菜单点击事件
+ */
+chrome.contextMenus.onClicked.addListener((info, tab) => {
+  console.log('[QAX Translator] 右键菜单被点击:', info);
+  
+  if (info.menuItemId === 'qax-translate' && info.selectionText) {
+    const selectedText = info.selectionText.trim();
+    
+    // 限制文本长度
+    const MAX_TEXT_LENGTH = 5000;
+    const textToTranslate = selectedText.length > MAX_TEXT_LENGTH
+      ? selectedText.substring(0, MAX_TEXT_LENGTH) + '...'
+      : selectedText;
+    
+    console.log('[QAX Translator] 准备翻译文本:', textToTranslate.substring(0, 50) + '...');
+    
+    // 发送消息到 content script 执行翻译
+    chrome.tabs.sendMessage(tab.id, {
+      action: 'translateFromContextMenu',
+      text: textToTranslate
+    }, (response) => {
+      if (chrome.runtime.lastError) {
+        console.error('[QAX Translator] 发送翻译消息失败:', chrome.runtime.lastError);
+      } else {
+        console.log('[QAX Translator] 翻译消息发送成功');
+      }
+    });
+  }
+});
+
 console.log('[QAX Translator] Background Service Worker 已启动');

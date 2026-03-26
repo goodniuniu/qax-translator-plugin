@@ -527,6 +527,27 @@
   function init() {
     console.log('[QAX Translator] 开始初始化 content script');
     
+    // 监听来自 background 的消息（右键菜单翻译）
+    chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+      console.log('[QAX Translator] 收到消息:', request.action);
+      
+      if (request.action === 'translateFromContextMenu') {
+        console.log('[QAX Translator] 收到右键菜单翻译请求');
+        // 获取选区位置用于显示弹窗
+        const position = getSelectionPosition();
+        if (position) {
+          doTranslate(request.text);
+        } else {
+          // 如果无法获取位置（选区已消失），直接翻译不显示弹窗位置
+          // 这种情况下弹窗会显示在屏幕中央或默认位置
+          doTranslate(request.text);
+        }
+        sendResponse({ success: true });
+      }
+      
+      return false; // 同步响应
+    });
+    
     // 监听划词事件
     console.log('[QAX Translator] 添加 mouseup 事件监听');
     document.addEventListener('mouseup', handleSelection);
