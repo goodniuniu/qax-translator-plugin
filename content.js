@@ -365,7 +365,7 @@
     try {
       return typeof chrome !== 'undefined' &&
              chrome.runtime &&
-             chrome.runtime.sendMessage;
+             chrome.runtime.onMessage;
     } catch (e) {
       return false;
     }
@@ -435,52 +435,61 @@
       isTranslating = false;
     }, 30000);
 
-    // 发送翻译请求
-    chrome.runtime.sendMessage({
-      action: 'translate',
-      text: text
-    }, (result) => {
-      clearTimeout(translateTimeout);
+    // 发送翻译请求（确保 chrome.runtime 存在）
+    try {
+      chrome.runtime.sendMessage({
+        action: 'translate',
+        text: text
+      }, (result) => {
+        clearTimeout(translateTimeout);
 
-      if (chrome.runtime.lastError) {
-        console.error('[QAX Translator] 翻译请求失败:', chrome.runtime.lastError);
-        updatePopupWithResult({
-          success: false,
-          error: '❌ 翻译失败\n\n错误类型: 通信错误\n错误信息: ' + chrome.runtime.lastError.message + '\n\n💡 解决建议：\n• 检查插件配置页面的测试是否通过\n• 尝试刷新页面后重新划词\n• 打开诊断工具查看详细日志'
-        });
+        if (chrome.runtime.lastError) {
+          console.error('[QAX Translator] 翻译请求失败:', chrome.runtime.lastError);
+          updatePopupWithResult({
+            success: false,
+            error: '❌ 翻译失败\n\n错误类型: 通信错误\n错误信息: ' + chrome.runtime.lastError.message + '\n\n💡 解决建议：\n• 检查插件配置页面的测试是否通过\n• 尝试刷新页面后重新划词\n• 打开诊断工具查看详细日志'
+          });
+          isTranslating = false;
+          return;
+        }
+
+        // 检查响应是否有效
+        if (!result) {
+          console.error('[QAX Translator] 后台返回空响应');
+          updatePopupWithResult({
+            success: false,
+            error: '❌ 翻译失败\n\n错误类型: 空响应\n错误信息: 后台返回空响应，请刷新插件后重试\n\n💡 解决建议：\n• 请访问 chrome://extensions/\n• 找到本插件，点击刷新按钮\n• 刷新页面后重新尝试'
+          });
+          isTranslating = false;
+          return;
+        }
+
+        if (typeof result !== 'object') {
+          console.error('[QAX Translator] 响应格式错误:', typeof result);
+          updatePopupWithResult({
+            success: false,
+            error: '❌ 翻译失败\n\n错误类型: 格式错误\n错误信息: 响应格式错误: ' + typeof result + '\n\n💡 解决建议：\n• 检查插件配置页面的测试是否通过\n• 尝试刷新页面后重新划词\n• 打开诊断工具查看详细日志'
+          });
+          isTranslating = false;
+          return;
+        }
+
+        // 如果后台返回错误，显示详细错误信息
+        if (!result.success && result.error) {
+          console.error('[QAX Translator] 后台返回错误:', result.error);
+        }
+
+        updatePopupWithResult(result);
         isTranslating = false;
-        return;
-      }
-
-      // 检查响应是否有效
-      if (!result) {
-        console.error('[QAX Translator] 后台返回空响应');
-        updatePopupWithResult({
-          success: false,
-          error: '❌ 翻译失败\n\n错误类型: 空响应\n错误信息: 后台返回空响应，请刷新插件后重试\n\n💡 解决建议：\n• 请访问 chrome://extensions/\n• 找到本插件，点击刷新按钮\n• 刷新页面后重新尝试'
-        });
-        isTranslating = false;
-        return;
-      }
-
-      if (typeof result !== 'object') {
-        console.error('[QAX Translator] 响应格式错误:', typeof result);
-        updatePopupWithResult({
-          success: false,
-          error: '❌ 翻译失败\n\n错误类型: 格式错误\n错误信息: 响应格式错误: ' + typeof result + '\n\n💡 解决建议：\n• 检查插件配置页面的测试是否通过\n• 尝试刷新页面后重新划词\n• 打开诊断工具查看详细日志'
-        });
-        isTranslating = false;
-        return;
-      }
-
-      // 如果后台返回错误，显示详细错误信息
-      if (!result.success && result.error) {
-        console.error('[QAX Translator] 后台返回错误:', result.error);
-      }
-
-      updatePopupWithResult(result);
+      });
+    } catch (e) {
+      console.error('[QAX Translator] 发送翻译请求时出错:', e);
+      updatePopupWithResult({
+        success: false,
+        error: '❌ 翻译失败\n\n错误类型: 发送失败\n错误信息: ' + (e && e.message ? e.message : '未知错误') + '\n\n💡 解决建议：\n• 请刷新页面后重试\n• 或重新启动浏览器'
+      });
       isTranslating = false;
-    });
+    }
   }
 
   /**
@@ -533,15 +542,11 @@
       
       if (request.action === 'translateFromContextMenu') {
         console.log('[QAX Translator] 收到右键菜单翻译请求');
-        // 获取选区位置用于显示弹窗
-        const position = getSelectionPosition();
-        if (position) {
-          doTranslate(request.text);
-        } else {
-          // 如果无法获取位置（选区已消失），直接翻译不显示弹窗位置
-          // 这种情况下弹窗会显示在屏幕中央或默认位置
-          doTranslate(request.text);
-        }
+        
+        // 直接执行翻译，不依赖选区位置
+        // 因为右键菜单点击时选区可能已消失
+        doTranslate(request.text);
+        
         sendResponse({ success: true });
       }
       

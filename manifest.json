@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "QAX 智能划词翻译",
-  "version": "1.0.0",
-  "description": "基于大模型的智能划词翻译插件，支持语言检测和中文翻译",
+  "version": "1.1.1",
+  "description": "基于大模型的智能划词翻译插件，支持语言检测和中文翻译，新增右键菜单翻译功能",
   "permissions": [
     "storage",
     "activeTab",

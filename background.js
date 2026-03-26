@@ -484,9 +484,37 @@ chrome.runtime.onInstalled.addListener(() => {
  */
 chrome.contextMenus.onClicked.addListener((info, tab) => {
   console.log('[QAX Translator] 右键菜单被点击:', info);
+  console.log('[QAX Translator] 选中文本:', info.selectionText);
+  console.log('[QAX Translator] 页面URL:', tab.url);
   
-  if (info.menuItemId === 'qax-translate' && info.selectionText) {
-    const selectedText = info.selectionText.trim();
+  if (info.menuItemId === 'qax-translate') {
+    let selectedText = '';
+    
+    // 尝试从多个来源获取选中文本
+    if (info.selectionText && info.selectionText.trim()) {
+      selectedText = info.selectionText.trim();
+    } else {
+      // 如果 info.selectionText 为空，尝试从页面获取
+      console.log('[QAX Translator] info.selectionText 为空，尝试从页面获取');
+      // 发送消息到页面获取选中文本
+      chrome.tabs.sendMessage(tab.id, {
+        action: 'getSelectedText'
+      }, (response) => {
+        if (chrome.runtime.lastError) {
+          console.error('[QAX Translator] 获取页面选中文本失败:', chrome.runtime.lastError);
+        } else if (response && response.text) {
+          selectedText = response.text;
+          console.log('[QAX Translator] 从页面获取到选中文本:', selectedText.substring(0, 50) + '...');
+        } else {
+          console.log('[QAX Translator] 无法从页面获取选中文本');
+        }
+      });
+    }
+    
+    if (!selectedText) {
+      console.log('[QAX Translator] 没有获取到选中文本，取消翻译');
+      return;
+    }
     
     // 限制文本长度
     const MAX_TEXT_LENGTH = 5000;
