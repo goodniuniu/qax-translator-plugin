@@ -15,8 +15,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // 默认配置
   const DEFAULT_CONFIG = {
-    apiUrl: 'http://10.3.4.21:8000/v1',
-    modelName: ''  // 留空让后端自动选择默认模型
+    apiUrl: 'http://10.3.4.1:1025/v1',
+    modelName: 'deepseekr1'
   };
 
   // 诊断日志
@@ -30,35 +30,31 @@ document.addEventListener('DOMContentLoaded', async () => {
   /**
    * 加载保存的配置
    */
-  async function loadConfig() {
+  function loadConfig() {
     addLog('INFO', '正在加载配置...');
-    try {
-      // 使用 Promise 包装以确保正确处理
-      const result = await new Promise((resolve) => {
-        chrome.storage.sync.get(['apiUrl', 'modelName', 'apiKey'], (data) => {
-          resolve(data || {});
-        });
-      });
+    chrome.storage.sync.get(['apiUrl', 'modelName', 'apiKey'], (data) => {
+      if (chrome.runtime.lastError) {
+        addLog('ERROR', `加载配置失败: ${chrome.runtime.lastError.message}`);
+        showStatus('error', `加载配置失败: ${chrome.runtime.lastError.message}`);
+        // 使用默认值
+        apiUrlInput.value = DEFAULT_CONFIG.apiUrl;
+        modelNameInput.value = DEFAULT_CONFIG.modelName;
+        apiKeyInput.value = '';
+        return;
+      }
       
       // 确保有默认值
-      apiUrlInput.value = result.apiUrl || DEFAULT_CONFIG.apiUrl;
-      modelNameInput.value = result.modelName || DEFAULT_CONFIG.modelName;
-      apiKeyInput.value = result.apiKey || '';
+      apiUrlInput.value = (data && data.apiUrl) || DEFAULT_CONFIG.apiUrl;
+      modelNameInput.value = (data && data.modelName) || DEFAULT_CONFIG.modelName;
+      apiKeyInput.value = (data && data.apiKey) || '';
       addLog('INFO', '配置加载成功');
-    } catch (error) {
-      addLog('ERROR', `加载配置失败: ${error.message}`);
-      showStatus('error', `加载配置失败: ${error.message}`);
-      // 使用默认值
-      apiUrlInput.value = DEFAULT_CONFIG.apiUrl;
-      modelNameInput.value = DEFAULT_CONFIG.modelName;
-      apiKeyInput.value = '';
-    }
+    });
   }
 
   /**
    * 保存配置
    */
-  async function saveConfig() {
+  function saveConfig() {
     const apiUrl = apiUrlInput.value.trim();
     const modelName = modelNameInput.value.trim();
     const apiKey = apiKeyInput.value.trim();
@@ -82,74 +78,84 @@ document.addEventListener('DOMContentLoaded', async () => {
       return;
     }
 
-    try {
-      await chrome.storage.sync.set({
-        apiUrl: normalizedUrl,
-        modelName: modelName,
-        apiKey: apiKey
-      });
-      addLog('INFO', '配置保存成功');
-      showStatus('success', '设置已保存');
-    } catch (error) {
-      addLog('ERROR', `保存配置失败: ${error.message}`);
-      showStatus('error', `保存失败: ${error.message}`);
-    }
+    chrome.storage.sync.set({
+      apiUrl: normalizedUrl,
+      modelName: modelName,
+      apiKey: apiKey
+    }, () => {
+      if (chrome.runtime.lastError) {
+        addLog('ERROR', `保存配置失败: ${chrome.runtime.lastError.message}`);
+        showStatus('error', `保存失败: ${chrome.runtime.lastError.message}`);
+      } else {
+        addLog('INFO', '配置保存成功');
+        showStatus('success', '设置已保存');
+      }
+    });
   }
 
   /**
-   * 测试 API 连接 - 增强版，带详细诊断
+   * 测试 API 连接 - 增强版，带详细诊断（纯回调方式）
    */
-  async function testConnection() {
+  function testConnection() {
     showStatus('loading', '正在测试连接...');
     testBtn.disabled = true;
     logs.length = 0;
     addLog('INFO', '开始测试连接...');
 
-    try {
-      // 先检查 background 是否响应
-      addLog('INFO', '检查后台服务状态...');
+    // 先检查 background 是否响应
+    addLog('INFO', '检查后台服务状态...');
+    
+    // 设置超时
+    const testTimeout = setTimeout(() => {
+      addLog('ERROR', '测试连接超时（10秒），后台服务可能未响应');
+      showStatus('error', '❌ 测试失败: 请求超时（10秒），后台服务可能未响应\n\n🔧 可能原因：\n1. 插件刚刚加载，请等待几秒后重试\n2. 插件需要刷新，请访问 chrome://extensions/ 并点击刷新按钮\n3. 浏览器控制台可能有更多错误信息');
+      testBtn.disabled = false;
+    }, 10000);
+
+    chrome.runtime.sendMessage({ action: 'testConnection' }, (result) => {
+      clearTimeout(testTimeout);
       
-      const response = await new Promise((resolve, reject) => {
-        const timeout = setTimeout(() => {
-          reject(new Error('请求超时（10秒），后台服务可能未响应'));
-        }, 10000);
-
-        chrome.runtime.sendMessage({ action: 'testConnection' }, (result) => {
-          clearTimeout(timeout);
-          
-          if (chrome.runtime.lastError) {
-            reject(new Error(`后台通信错误: ${chrome.runtime.lastError.message}`));
-            return;
-          }
-          
-          resolve(result);
-        });
-      });
-
-      addLog('INFO', `收到响应: ${JSON.stringify(response).substring(0, 200)}...`);
+      if (chrome.runtime.lastError) {
+        addLog('ERROR', `后台通信错误: ${chrome.runtime.lastError.message}`);
+        showStatus('error', `❌ 测试失败: 后台通信错误\n\n错误信息: ${chrome.runtime.lastError.message}\n\n🔧 可能原因：\n1. 插件刚刚加载，请等待几秒后重试\n2. 插件需要刷新，请访问 chrome://extensions/ 并点击刷新按钮\n3. 浏览器控制台可能有更多错误信息`);
+        testBtn.disabled = false;
+        return;
+      }
+      
+      addLog('INFO', `收到响应: ${JSON.stringify(result).substring(0, 200)}...`);
 
       // 检查响应是否有效
-      if (!response) {
-        throw new Error('后台返回空响应，请检查插件是否已重新加载');
+      if (!result) {
+        addLog('ERROR', '后台返回空响应');
+        showStatus('error', '❌ 测试失败: 后台返回空响应，请检查插件是否已重新加载\n\n🔧 可能原因：\n1. 插件刚刚加载，请等待几秒后重试\n2. 插件需要刷新，请访问 chrome://extensions/ 并点击刷新按钮');
+        testBtn.disabled = false;
+        return;
       }
 
-      if (typeof response !== 'object') {
-        throw new Error(`响应格式错误: ${typeof response}`);
+      if (typeof result !== 'object') {
+        addLog('ERROR', `响应格式错误: ${typeof result}`);
+        showStatus('error', `❌ 测试失败: 响应格式错误\n\n错误信息: 响应格式错误: ${typeof result}`);
+        testBtn.disabled = false;
+        return;
       }
 
-      if (response.success === undefined) {
-        throw new Error('响应缺少 success 字段，可能是 API 返回格式错误');
+      if (result.success === undefined) {
+        addLog('ERROR', '响应缺少 success 字段');
+        showStatus('error', '❌ 测试失败: 响应缺少 success 字段，可能是 API 返回格式错误');
+        testBtn.disabled = false;
+        return;
       }
 
-      if (response.success) {
-        showStatus('success', 
+      if (result.success) {
+        addLog('SUCCESS', '测试连接成功');
+        showStatus('success',
           `✅ 连接成功！\n` +
-          `检测语言: ${response.detectedLanguage}\n` +
-          `译文: ${response.translation.substring(0, 50)}${response.translation.length > 50 ? '...' : ''}`
+          `检测语言: ${result.detectedLanguage}\n` +
+          `译文: ${result.translation.substring(0, 50)}${result.translation.length > 50 ? '...' : ''}`
         );
       } else {
         // 构建详细错误信息
-        let errorDetail = response.error || '未知错误';
+        let errorDetail = result.error || '未知错误';
         
         // 添加诊断建议
         if (errorDetail.includes('fetch') || errorDetail.includes('连接')) {
@@ -167,26 +173,12 @@ document.addEventListener('DOMContentLoaded', async () => {
           errorDetail += '\n2. 后端返回的格式是否为标准 JSON';
         }
         
+        addLog('ERROR', '测试连接失败');
         showStatus('error', errorDetail);
       }
-    } catch (error) {
-      addLog('ERROR', `测试连接失败: ${error.message}`);
-      console.error('[QAX Translator] 测试连接失败:', error);
       
-      let errorMsg = `❌ 测试失败: ${error.message}`;
-      
-      // 添加常见问题的诊断建议
-      if (error.message.includes('后台')) {
-        errorMsg += '\n\n🔧 可能原因：';
-        errorMsg += '\n1. 插件刚刚加载，请等待几秒后重试';
-        errorMsg += '\n2. 插件需要刷新，请访问 chrome://extensions/ 并点击刷新按钮';
-        errorMsg += '\n3. 浏览器控制台可能有更多错误信息';
-      }
-      
-      showStatus('error', errorMsg);
-    } finally {
       testBtn.disabled = false;
-    }
+    });
   }
 
   /**

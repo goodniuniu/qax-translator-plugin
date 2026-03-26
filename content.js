@@ -371,118 +371,116 @@
     }
   }
 
-  async function doTranslate(text) {
+  function doTranslate(text) {
     if (isTranslating) return;
     isTranslating = true;
 
-    try {
-      // 检查扩展上下文有效性
-      if (!isExtensionContextValid()) {
-        throw new Error('扩展上下文已失效，请刷新页面后重试');
-      }
+    // 检查扩展上下文有效性
+    if (!isExtensionContextValid()) {
+      updatePopupWithResult({
+        success: false,
+        error: '❌ 翻译失败\n\n错误类型: 上下文失效\n错误信息: 扩展上下文已失效，请刷新页面后重试\n\n💡 解决建议：\n• 扩展已被重新加载或禁用\n• 请刷新当前网页（F5）\n• 或者重新启动浏览器'
+      });
+      isTranslating = false;
+      return;
+    }
 
-      const position = getSelectionPosition();
-      if (!position) {
+    const position = getSelectionPosition();
+    if (!position) {
+      isTranslating = false;
+      return;
+    }
+
+    showPopup(position);
+
+    // 先发送一个 ping 消息确保 Service Worker 已启动
+    const pingTimeout = setTimeout(() => {
+      console.warn('[QAX Translator] Service Worker ping 超时，尝试直接发送翻译请求');
+      sendTranslateRequest(text);
+    }, 2000);
+
+    chrome.runtime.sendMessage({ action: 'ping' }, (pingResponse) => {
+      clearTimeout(pingTimeout);
+      if (chrome.runtime.lastError) {
+        console.warn('[QAX Translator] Service Worker ping 失败，尝试直接发送翻译请求:', chrome.runtime.lastError.message);
+        sendTranslateRequest(text);
+      } else {
+        console.log('[QAX Translator] Service Worker 已唤醒');
+        sendTranslateRequest(text);
+      }
+    });
+  }
+
+  /**
+   * 发送翻译请求（纯回调方式）
+   */
+  function sendTranslateRequest(text) {
+    // 再次检查扩展上下文
+    if (!isExtensionContextValid()) {
+      updatePopupWithResult({
+        success: false,
+        error: '❌ 翻译失败\n\n错误类型: 上下文失效\n错误信息: 扩展上下文已失效，请刷新页面后重试\n\n💡 解决建议：\n• 扩展已被重新加载或禁用\n• 请刷新当前网页（F5）\n• 或者重新启动浏览器'
+      });
+      isTranslating = false;
+      return;
+    }
+
+    // 设置超时
+    const translateTimeout = setTimeout(() => {
+      console.error('[QAX Translator] 翻译请求超时');
+      updatePopupWithResult({
+        success: false,
+        error: '❌ 翻译失败\n\n错误类型: 超时\n错误信息: 请求超时（30秒）\n\n💡 可能原因：\n• 后端服务响应缓慢\n• 网络连接不稳定\n• 模型计算耗时较长'
+      });
+      isTranslating = false;
+    }, 30000);
+
+    // 发送翻译请求
+    chrome.runtime.sendMessage({
+      action: 'translate',
+      text: text
+    }, (result) => {
+      clearTimeout(translateTimeout);
+
+      if (chrome.runtime.lastError) {
+        console.error('[QAX Translator] 翻译请求失败:', chrome.runtime.lastError);
+        updatePopupWithResult({
+          success: false,
+          error: '❌ 翻译失败\n\n错误类型: 通信错误\n错误信息: ' + chrome.runtime.lastError.message + '\n\n💡 解决建议：\n• 检查插件配置页面的测试是否通过\n• 尝试刷新页面后重新划词\n• 打开诊断工具查看详细日志'
+        });
         isTranslating = false;
         return;
       }
 
-      showPopup(position);
-
-      // 先发送一个 ping 消息确保 Service Worker 已启动
-      try {
-        await new Promise((resolve, reject) => {
-          const timeout = setTimeout(() => reject(new Error('Service Worker 未响应')), 2000);
-          chrome.runtime.sendMessage({ action: 'ping' }, (response) => {
-            clearTimeout(timeout);
-            if (chrome.runtime.lastError) {
-              reject(new Error(chrome.runtime.lastError.message));
-            } else {
-              resolve(response);
-            }
-          });
-        });
-        console.log('[QAX Translator] Service Worker 已唤醒');
-      } catch (pingError) {
-        console.warn('[QAX Translator] Service Worker 唤醒失败，尝试直接发送翻译请求:', pingError.message);
-      }
-
-      // 再次检查扩展上下文（在 ping 之后可能已失效）
-      if (!isExtensionContextValid()) {
-        throw new Error('扩展上下文已失效，请刷新页面后重试');
-      }
-
-      // 添加超时处理
-      const response = await Promise.race([
-        new Promise((resolve, reject) => {
-          const timeout = setTimeout(() => reject(new Error('请求超时（30秒）')), 30000);
-          chrome.runtime.sendMessage({
-            action: 'translate',
-            text: text
-          }, (result) => {
-            clearTimeout(timeout);
-            if (chrome.runtime.lastError) {
-              reject(new Error(chrome.runtime.lastError.message));
-            } else {
-              resolve(result);
-            }
-          });
-        })
-      ]);
-
       // 检查响应是否有效
-      if (!response) {
-        throw new Error('后台返回空响应，请刷新插件后重试');
+      if (!result) {
+        console.error('[QAX Translator] 后台返回空响应');
+        updatePopupWithResult({
+          success: false,
+          error: '❌ 翻译失败\n\n错误类型: 空响应\n错误信息: 后台返回空响应，请刷新插件后重试\n\n💡 解决建议：\n• 请访问 chrome://extensions/\n• 找到本插件，点击刷新按钮\n• 刷新页面后重新尝试'
+        });
+        isTranslating = false;
+        return;
       }
 
-      if (typeof response !== 'object') {
-        throw new Error(`响应格式错误: ${typeof response}`);
+      if (typeof result !== 'object') {
+        console.error('[QAX Translator] 响应格式错误:', typeof result);
+        updatePopupWithResult({
+          success: false,
+          error: '❌ 翻译失败\n\n错误类型: 格式错误\n错误信息: 响应格式错误: ' + typeof result + '\n\n💡 解决建议：\n• 检查插件配置页面的测试是否通过\n• 尝试刷新页面后重新划词\n• 打开诊断工具查看详细日志'
+        });
+        isTranslating = false;
+        return;
       }
 
       // 如果后台返回错误，显示详细错误信息
-      if (!response.success && response.error) {
-        console.error('[QAX Translator] 后台返回错误:', response.error);
+      if (!result.success && result.error) {
+        console.error('[QAX Translator] 后台返回错误:', result.error);
       }
 
-      updatePopupWithResult(response);
-    } catch (error) {
-      console.error('[QAX Translator] 翻译出错:', error);
-      
-      // 构建详细错误信息
-      let errorMsg = '❌ 翻译失败\n\n';
-      errorMsg += `错误类型: ${error.name || '未知'}\n`;
-      errorMsg += `错误信息: ${error.message || '无'}\n\n`;
-      
-      // 添加排查建议
-      if (error.message && error.message.includes('扩展上下文已失效')) {
-        errorMsg += '💡 解决建议：\n';
-        errorMsg += '• 扩展已被重新加载或禁用\n';
-        errorMsg += '• 请刷新当前网页（F5）\n';
-        errorMsg += '• 或者重新启动浏览器';
-      } else if (error.message && error.message.includes('timeout')) {
-        errorMsg += '💡 可能原因：\n';
-        errorMsg += '• 后端服务响应缓慢\n';
-        errorMsg += '• 网络连接不稳定\n';
-        errorMsg += '• 模型计算耗时较长';
-      } else if (error.message && error.message.includes('空响应')) {
-        errorMsg += '💡 解决建议：\n';
-        errorMsg += '• 请访问 chrome://extensions/\n';
-        errorMsg += '• 找到本插件，点击刷新按钮\n';
-        errorMsg += '• 刷新页面后重新尝试';
-      } else {
-        errorMsg += '💡 解决建议：\n';
-        errorMsg += '• 检查插件配置页面的测试是否通过\n';
-        errorMsg += '• 尝试刷新页面后重新划词\n';
-        errorMsg += '• 打开诊断工具查看详细日志';
-      }
-      
-      updatePopupWithResult({
-        success: false,
-        error: errorMsg
-      });
-    } finally {
+      updatePopupWithResult(result);
       isTranslating = false;
-    }
+    });
   }
 
   /**

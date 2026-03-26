@@ -6,8 +6,8 @@
 
 // 默认配置
 const DEFAULT_CONFIG = {
-  apiUrl: 'http://10.3.4.21:8000/v1',
-  modelName: '',  // 留空让后端自动选择默认模型
+  apiUrl: 'http://10.3.4.1:1025/v1',
+  modelName: 'deepseekr1',
   apiKey: '',  // API Key（可选，用于互联网大模型服务）
   timeout: 30000
 };
