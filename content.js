@@ -22,7 +22,10 @@
     minTextLength: 1,        // 最小选中文本长度
     maxTextLength: 5000,     // 最大选中文本长度
     popupDelay: 300,         // 弹窗延迟（毫秒）
-    popupOffset: 10          // 弹窗偏移量
+    popupOffset: 10,         // 弹窗偏移量
+    popupMargin: 10,         // 弹窗边距
+    maxPopupHeight: 400,     // 弹窗最大高度
+    minSpaceThreshold: 200  // 最小空间阈值
   };
 
   /**
@@ -75,6 +78,68 @@
       width: rect.width,
       height: rect.height
     };
+  }
+
+  /**
+   * 智能计算弹窗位置
+   * @param {Object} position - 选中文本的位置信息
+   * @param {HTMLElement} popup - 弹窗元素
+   * @returns {Object} - 计算后的位置 {left, top}
+   */
+  function calculatePopupPosition(position, popup) {
+    const popupRect = popup.getBoundingClientRect();
+    const viewportWidth = window.innerWidth;
+    const viewportHeight = window.innerHeight;
+    
+    // 弹窗尺寸
+    const popupWidth = Math.min(popupRect.width, 380);
+    const popupHeight = Math.min(popupRect.height, CONFIG.maxPopupHeight);
+    
+    // 计算可用空间
+    const spaceAbove = position.top - CONFIG.popupMargin;
+    const spaceBelow = viewportHeight - position.bottom - CONFIG.popupMargin;
+    
+    // 默认位置：选中文本下方居中
+    let left = position.left + (position.width / 2) - (popupWidth / 2);
+    let top = position.bottom + CONFIG.popupOffset;
+    
+    // 水平边界检测 - 确保不超出视口
+    if (left < CONFIG.popupMargin) {
+      left = CONFIG.popupMargin;
+    } else if (left + popupWidth > viewportWidth - CONFIG.popupMargin) {
+      left = viewportWidth - popupWidth - CONFIG.popupMargin;
+    }
+    
+    // 垂直位置智能调整
+    // 如果下方空间不足，优先显示在上方
+    if (spaceBelow < popupHeight && spaceAbove > popupHeight) {
+      // 下方空间不足且上方空间充足，显示在上方
+      top = position.top - popupHeight - CONFIG.popupOffset;
+    } else if (spaceBelow < CONFIG.minSpaceThreshold) {
+      // 下方空间很小，强制显示在上方
+      if (spaceAbove > popupHeight) {
+        top = position.top - popupHeight - CONFIG.popupOffset;
+      } else {
+        // 上下空间都不足，选择空间较大的一侧
+        if (spaceAbove > spaceBelow) {
+          top = Math.max(CONFIG.popupMargin, position.top - popupHeight - CONFIG.popupOffset);
+        } else {
+          top = position.bottom + CONFIG.popupOffset;
+        }
+      }
+    }
+    
+    // 确保不超出视口顶部
+    if (top < CONFIG.popupMargin) {
+      top = CONFIG.popupMargin;
+    }
+    
+    // 确保不超出视口底部
+    if (top + popupHeight > viewportHeight - CONFIG.popupMargin) {
+      top = Math.max(CONFIG.popupMargin, viewportHeight - popupHeight - CONFIG.popupMargin);
+    }
+    
+    return { left, top };
   }
 
   /**
@@ -134,42 +199,9 @@
     currentPopup.style.width = '320px';
     currentPopup.style.maxWidth = '90vw';
     
-    // 计算弹窗位置（智能避让）
-    const popupRect = currentPopup.getBoundingClientRect();
-    const viewportWidth = window.innerWidth;
-    const viewportHeight = window.innerHeight;
+    // 使用智能位置计算函数
+    const { left, top } = calculatePopupPosition(position, currentPopup);
     
-    // 默认位置：选中文本下方居中（使用视口坐标）
-    let left = position.left + (position.width / 2) - (Math.min(popupRect.width, 320) / 2);
-    let top = position.bottom + CONFIG.popupOffset;
-
-    // 水平边界检测 - 确保不超出视口
-    const margin = 10;
-    const popupWidth = Math.min(popupRect.width, 320);
-    if (left < margin) {
-      left = margin;
-    } else if (left + popupWidth > viewportWidth - margin) {
-      left = viewportWidth - popupWidth - margin;
-    }
-
-    // 垂直边界检测 - 如果下方空间不足，显示在上方
-    const popupHeight = Math.min(popupRect.height, 400);
-    const spaceBelow = viewportHeight - position.bottom - CONFIG.popupOffset;
-    const spaceAbove = position.top - CONFIG.popupOffset;
-    
-    if (spaceBelow < popupHeight && spaceAbove > popupHeight) {
-      // 下方空间不足且上方空间充足，显示在上方
-      top = position.top - popupHeight - CONFIG.popupOffset;
-    } else if (spaceBelow < 200) {
-      // 下方空间很小，强制显示在上方
-      top = Math.max(margin, position.top - popupHeight - CONFIG.popupOffset);
-    }
-    
-    // 确保不超出视口顶部
-    if (top < margin) {
-      top = margin;
-    }
-
     currentPopup.style.left = `${left}px`;
     currentPopup.style.top = `${top}px`;
     currentPopup.style.opacity = '0';
@@ -206,6 +238,12 @@
     if (!currentPopup) return;
 
     const contentDiv = currentPopup.querySelector('.qax-translator-content');
+    
+    // 保存原始位置信息，用于后续重新计算
+    const originalPosition = {
+      left: parseFloat(currentPopup.style.left),
+      top: parseFloat(currentPopup.style.top)
+    };
     
     if (!result.success) {
       const errorText = result.error || '未知错误';
@@ -342,6 +380,47 @@
         }, 2000);
       } catch (err) {
         console.error('[QAX Translator] 复制失败:', err);
+      }
+    });
+    
+    // 内容更新后，重新计算弹窗位置以避免被遮挡
+    // 使用 requestAnimationFrame 确保 DOM 更新完成后再计算
+    requestAnimationFrame(() => {
+      // 获取当前弹窗位置和尺寸
+      const currentRect = currentPopup.getBoundingClientRect();
+      const viewportHeight = window.innerHeight;
+      const viewportWidth = window.innerWidth;
+      
+      // 检查弹窗是否超出视口底部
+      if (currentRect.bottom > viewportHeight - CONFIG.popupMargin) {
+        // 尝试向上移动弹窗
+        const newTop = Math.max(
+          CONFIG.popupMargin,
+          viewportHeight - currentRect.height - CONFIG.popupMargin
+        );
+        
+        // 平滑过渡到新位置
+        currentPopup.style.transition = 'top 0.3s ease';
+        currentPopup.style.top = `${newTop}px`;
+        
+        // 移除过渡效果，避免影响其他操作
+        setTimeout(() => {
+          currentPopup.style.transition = '';
+        }, 300);
+      }
+      
+      // 检查弹窗是否超出视口右侧
+      if (currentRect.right > viewportWidth - CONFIG.popupMargin) {
+        const newLeft = Math.max(
+          CONFIG.popupMargin,
+          viewportWidth - currentRect.width - CONFIG.popupMargin
+        );
+        currentPopup.style.left = `${newLeft}px`;
+      }
+      
+      // 检查弹窗是否超出视口左侧
+      if (currentRect.left < CONFIG.popupMargin) {
+        currentPopup.style.left = `${CONFIG.popupMargin}px`;
       }
     });
   }

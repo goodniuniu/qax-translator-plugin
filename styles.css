@@ -39,7 +39,7 @@
   z-index: 2147483647 !important;
   min-width: 280px;
   max-width: 380px;
-  max-height: 80vh;
+  max-height: 85vh;
   background: var(--qax-bg);
   border-radius: var(--qax-radius);
   box-shadow: var(--qax-shadow);
@@ -49,7 +49,7 @@
   color: var(--qax-text);
   border: 1px solid var(--qax-border);
   overflow: hidden;
-  transition: opacity 0.2s ease, transform 0.2s ease;
+  transition: opacity 0.2s ease, transform 0.2s ease, top 0.3s ease, left 0.3s ease;
   user-select: none;
   -webkit-user-select: none;
 }
@@ -106,8 +106,9 @@
 /* ========== 内容区域 ========== */
 .qax-translator-content {
   padding: 12px;
-  max-height: calc(80vh - 50px);
+  max-height: calc(85vh - 60px);
   overflow-y: auto;
+  overflow-x: hidden;
 }
 
 /* ========== 加载状态 ========== */
@@ -218,21 +219,24 @@
   line-height: 1.6;
   word-break: break-word;
   white-space: pre-wrap;
-  max-height: 120px;
+  max-height: 150px;
   overflow-y: auto;
+  overflow-x: hidden;
 }
 
 .qax-translator-original {
   color: var(--qax-text);
-  max-height: 120px;
+  max-height: 150px;
   overflow-y: auto;
+  overflow-x: hidden;
 }
 
 .qax-translator-translation {
   color: var(--qax-primary);
   font-weight: 500;
-  max-height: 200px;
+  max-height: 250px;
   overflow-y: auto;
+  overflow-x: hidden;
 }
 
 .qax-translator-divider {
@@ -348,21 +352,27 @@
 
 /* ========== 滚动条样式 ========== */
 .qax-translator-popup ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 8px;
+  height: 8px;
 }
 
 .qax-translator-popup ::-webkit-scrollbar-track {
-  background: transparent;
+  background: rgba(0, 0, 0, 0.05);
+  border-radius: 4px;
 }
 
 .qax-translator-popup ::-webkit-scrollbar-thumb {
   background: var(--qax-border);
-  border-radius: 3px;
+  border-radius: 4px;
+  transition: background 0.2s ease;
 }
 
 .qax-translator-popup ::-webkit-scrollbar-thumb:hover {
   background: var(--qax-text-secondary);
+}
+
+.qax-translator-popup ::-webkit-scrollbar-corner {
+  background: transparent;
 }
 
 /* ========== 动画 ========== */

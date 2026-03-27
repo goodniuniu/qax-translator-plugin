@@ -26,3 +26,12 @@ node_modules/
 # Temporary files
 *.tmp
 *.temp
+
+# Distribution packages (build artifacts)
+目标路径/
+鐩?爣璺?緞/
+*.zip
+*.tar.gz
+
+# Test artifacts
+cmd-*.txt
