@@ -8,6 +8,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   const apiUrlInput = document.getElementById('apiUrl');
   const modelNameInput = document.getElementById('modelName');
   const apiKeyInput = document.getElementById('apiKey');
+  const scenarioInput = document.getElementById('scenario');
   const testBtn = document.getElementById('testBtn');
   const saveBtn = document.getElementById('saveBtn');
   const statusContainer = document.getElementById('statusContainer');
@@ -16,7 +17,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   // 默认配置
   const DEFAULT_CONFIG = {
     apiUrl: 'http://10.3.4.1:1025/v1',
-    modelName: 'deepseekr1'
+    modelName: 'deepseekr1',
+    scenario: 'general'
   };
 
   // 诊断日志
@@ -32,7 +34,7 @@ document.addEventListener('DOMContentLoaded', async () => {
    */
   function loadConfig() {
     addLog('INFO', '正在加载配置...');
-    chrome.storage.sync.get(['apiUrl', 'modelName', 'apiKey'], (data) => {
+    chrome.storage.sync.get(['apiUrl', 'modelName', 'apiKey', 'scenario'], (data) => {
       if (chrome.runtime.lastError) {
         addLog('ERROR', `加载配置失败: ${chrome.runtime.lastError.message}`);
         showStatus('error', `加载配置失败: ${chrome.runtime.lastError.message}`);
@@ -40,6 +42,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         apiUrlInput.value = DEFAULT_CONFIG.apiUrl;
         modelNameInput.value = DEFAULT_CONFIG.modelName;
         apiKeyInput.value = '';
+        scenarioInput.value = DEFAULT_CONFIG.scenario;
         return;
       }
       
@@ -47,6 +50,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       apiUrlInput.value = (data && data.apiUrl) || DEFAULT_CONFIG.apiUrl;
       modelNameInput.value = (data && data.modelName) || DEFAULT_CONFIG.modelName;
       apiKeyInput.value = (data && data.apiKey) || '';
+      scenarioInput.value = (data && data.scenario) || DEFAULT_CONFIG.scenario;
       addLog('INFO', '配置加载成功');
     });
   }
@@ -58,8 +62,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     const apiUrl = apiUrlInput.value.trim();
     const modelName = modelNameInput.value.trim();
     const apiKey = apiKeyInput.value.trim();
+    const scenario = scenarioInput.value;
 
-    addLog('INFO', `正在保存配置: apiUrl=${apiUrl}, modelName=${modelName}, apiKey=${apiKey ? '***' : '(空)'}`);
+    addLog('INFO', `正在保存配置: apiUrl=${apiUrl}, modelName=${modelName}, apiKey=${apiKey ? '***' : '(空)'}, scenario=${scenario}`);
 
     // 验证 API URL
     if (!apiUrl) {
@@ -81,7 +86,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     chrome.storage.sync.set({
       apiUrl: normalizedUrl,
       modelName: modelName,
-      apiKey: apiKey
+      apiKey: apiKey,
+      scenario: scenario
     }, () => {
       if (chrome.runtime.lastError) {
         addLog('ERROR', `保存配置失败: ${chrome.runtime.lastError.message}`);

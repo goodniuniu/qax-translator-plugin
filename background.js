@@ -9,11 +9,12 @@ const DEFAULT_CONFIG = {
   apiUrl: 'http://10.3.4.1:1025/v1',
   modelName: 'deepseekr1',
   apiKey: '',  // API Key（可选，用于互联网大模型服务）
-  timeout: 30000
+  timeout: 60000,  // 增加到60秒，以适应更长的提示词
+  scenario: 'general'  // 翻译场景：general（一般翻译）或 customs（邮局海关审单）
 };
 
 // 系统提示词 - 针对 vLLM + MiniMax 模型优化
-const SYSTEM_PROMPT = `你是一个语言检测和翻译专家。请严格按以下步骤处理用户输入：
+const GENERAL_SYSTEM_PROMPT = `你是一个语言检测和翻译专家。请严格按以下步骤处理用户输入：
 
 【第一步：语言研判】
 分析用户输入文本的语言类型，使用中文表述语言名称（如：英语、日语、韩语、法语、德语、西班牙语、俄语、阿拉伯语、中文等）。
@@ -40,6 +41,42 @@ const SYSTEM_PROMPT = `你是一个语言检测和翻译专家。请严格按以
 研判：中文
 输出：{"detectedLanguage": "中文", "translation": "你好世界"}`;
 
+// 邮局海关审单场景提示词
+const CUSTOMS_SYSTEM_PROMPT = `你是海关邮政审单系统的语言识别与翻译引擎。处理审单场景中的碎片化、多语言混合文本。
+
+【核心任务】
+1. 识别文本中的主要语言（混合文本标注所有语言，按占比排序）
+2. 根据文本类型智能翻译：
+   - 地址类：保留原格式，仅翻译通用方位词（区/市/省），专有地名音译或保留原文
+   - 人名/机构名：音译为主，知名实体保留通行译名（如"IBM"不译）
+   - 商品描述：准确翻译，保留专业术语原文并括号备注
+   - 乱码/无法识别：标记为"未知/乱码"
+
+【混合语言处理规则】
+- 主语言占比<60%时，detectedLanguage格式："主要语言+辅助语言"（如"日语+英语"）
+- 翻译时保持原文结构，混合部分分段处理
+
+【输出格式 - 严格JSON】
+{
+  "detectedLanguage": "语言名称或混合标注",
+  "confidence": "高/中/低",
+  "translation": "中文译文",
+  "notes": "特殊处理说明（如专有名词保留、疑似乱码等，无则留空）"
+}
+
+【审单场景示例】
+输入：Shibuya-ku, Tokyo 150-0002 渋谷区
+输出：{"detectedLanguage":"日语+英语","confidence":"高","translation":"涩谷区，东京都 150-0002","notes":"地址保留邮编格式，日语地名音译"}
+
+输入：Nike Air Max 90 sneakers
+输出：{"detectedLanguage":"英语","confidence":"高","translation":"Nike Air Max 90 运动鞋","notes":"品牌名保留原文"}
+
+输入：
+输出：{"detectedLanguage":"未知/乱码","confidence":"低","translation":"","notes":"输入包含不可识别字符，建议核对原始单据"}
+
+输入：Hola señor, こんにちは
+输出：{"detectedLanguage":"西班牙语+日语","confidence":"高","translation":"你好先生，你好","notes":"混合问候语分段翻译"}`;
+
 /**
  * 获取存储的配置 - 确保始终返回有效对象
  */
@@ -47,7 +84,7 @@ async function getConfig() {
   try {
     // 使用 Promise 包装以确保正确处理
     const result = await new Promise((resolve) => {
-      chrome.storage.sync.get(['apiUrl', 'modelName', 'apiKey', 'timeout'], (data) => {
+      chrome.storage.sync.get(['apiUrl', 'modelName', 'apiKey', 'timeout', 'scenario'], (data) => {
         // 确保返回对象，即使 storage 返回 undefined
         resolve(data || {});
       });
@@ -58,12 +95,14 @@ async function getConfig() {
       apiUrl: result.apiUrl || DEFAULT_CONFIG.apiUrl,
       modelName: result.modelName || DEFAULT_CONFIG.modelName,
       apiKey: result.apiKey || DEFAULT_CONFIG.apiKey,
-      timeout: result.timeout || DEFAULT_CONFIG.timeout
+      timeout: result.timeout || DEFAULT_CONFIG.timeout,
+      scenario: result.scenario || DEFAULT_CONFIG.scenario
     };
     
     console.log('[QAX Translator] 获取配置:', {
       ...config,
-      apiKey: config.apiKey ? '***' : '(空)'
+      apiKey: config.apiKey ? '***' : '(空)',
+      scenario: config.scenario
     });
     return config;
   } catch (error) {
@@ -187,11 +226,16 @@ async function getFirstAvailableModel(config) {
 async function translateText(text) {
   const config = await getConfig();
   
+  // 根据场景选择提示词
+  const systemPrompt = config.scenario === 'customs' ? CUSTOMS_SYSTEM_PROMPT : GENERAL_SYSTEM_PROMPT;
+  
   console.log('[QAX Translator] 当前配置:', {
     apiUrl: config.apiUrl,
     modelName: config.modelName || '(自动获取)',
-    timeout: config.timeout
+    timeout: config.timeout,
+    scenario: config.scenario
   });
+  console.log('[QAX Translator] 使用提示词:', config.scenario === 'customs' ? '邮局海关审单' : '一般翻译');
   
   // 如果模型名称为空，自动获取第一个可用模型
   let modelName = config.modelName;
@@ -211,7 +255,7 @@ async function translateText(text) {
     messages: [
       {
         role: 'system',
-        content: SYSTEM_PROMPT
+        content: systemPrompt
       },
       {
         role: 'user',

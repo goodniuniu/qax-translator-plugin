@@ -18,7 +18,7 @@ echo ========================================
 echo.
 
 REM 读取版本号（使用 PowerShell）
-for /f "usebackq delims=" %%i in (`powershell -Command "(Get-Content manifest.json | ConvertFrom-Json).version"`) do set VERSION=%%i
+for /f "usebackq delims=" %%i in (`powershell -Command "[Console]::OutputEncoding = [System.Text.Encoding]::UTF8; (Get-Content manifest.json -Encoding UTF8 | ConvertFrom-Json).version"`) do set VERSION=%%i
 
 echo 版本: v%VERSION%
 echo.

@@ -371,7 +371,7 @@
     }
   }
 
-  function doTranslate(text) {
+  function doTranslate(text, customPosition = null) {
     if (isTranslating) return;
     isTranslating = true;
 
@@ -385,7 +385,8 @@
       return;
     }
 
-    const position = getSelectionPosition();
+    // 优先使用自定义位置（右键菜单场景），否则获取选区位置
+    const position = customPosition || getSelectionPosition();
     if (!position) {
       isTranslating = false;
       return;
@@ -543,9 +544,17 @@
       if (request.action === 'translateFromContextMenu') {
         console.log('[QAX Translator] 收到右键菜单翻译请求');
         
-        // 直接执行翻译，不依赖选区位置
-        // 因为右键菜单点击时选区可能已消失
-        doTranslate(request.text);
+        // 右键菜单场景下，选区可能已消失，使用默认位置
+        // 使用屏幕中心位置显示弹窗
+        const defaultPosition = {
+          left: window.innerWidth / 2 - 160,  // 居中显示（弹窗宽度约320px）
+          top: window.innerHeight / 2 - 100,
+          right: window.innerWidth / 2 + 160,
+          bottom: window.innerHeight / 2 + 100,
+          width: 320,
+          height: 200
+        };
+        doTranslate(request.text, defaultPosition);
         
         sendResponse({ success: true });
       }

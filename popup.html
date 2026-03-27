@@ -329,8 +329,17 @@
       
       <div class="form-group">
         <label class="form-label" for="apiUrl">API 接口地址</label>
-        <input type="text" id="apiUrl" class="form-input" placeholder="http://10.3.4.21:8000/v1">
+        <input type="text" id="apiUrl" class="form-input" placeholder="http://10.3.4.1:1025/v1">
         <div class="form-hint">大模型 API 的基础地址，不需要包含 /chat/completions</div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" for="scenario">翻译场景</label>
+        <select id="scenario" class="form-input">
+          <option value="general">一般翻译</option>
+          <option value="customs">邮局海关审单</option>
+        </select>
+        <div class="form-hint">选择翻译场景，不同场景使用不同的提示词和翻译规则</div>
       </div>
 
       <div class="form-group">
