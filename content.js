@@ -16,6 +16,13 @@
   let isTranslating = false;
   let currentPopup = null;
   let selectionTimeout = null;
+  
+  // 定时器管理 - 统一管理所有定时器，便于销毁时清理
+  let popupTimers = {
+    closeTimer: null,        // 关闭弹窗的动画定时器
+    positionTimer: null,     // 位置调整的定时器
+    copyResetTimer: null     // 复制按钮重置的定时器
+  };
 
   // 配置
   const CONFIG = {
@@ -189,7 +196,7 @@
    * 显示翻译弹窗 - 改进定位和尺寸控制（使用 fixed 定位）
    */
   function showPopup(position) {
-    // 关闭已存在的弹窗
+    // 关闭已存在的弹窗（会清除所有定时器）
     closePopup();
 
     currentPopup = createPopup();
@@ -207,25 +214,52 @@
     currentPopup.style.opacity = '0';
     currentPopup.style.transform = 'translateY(-10px)';
 
-    // 动画显示
+    // 动画显示 - 添加空值检查
     requestAnimationFrame(() => {
-      currentPopup.style.opacity = '1';
-      currentPopup.style.transform = 'translateY(0)';
+      if (currentPopup && currentPopup.isConnected) {
+        currentPopup.style.opacity = '1';
+        currentPopup.style.transform = 'translateY(0)';
+      }
     });
+  }
+
+  /**
+   * 清除所有弹窗相关的定时器
+   */
+  function clearAllPopupTimers() {
+    if (popupTimers.closeTimer) {
+      clearTimeout(popupTimers.closeTimer);
+      popupTimers.closeTimer = null;
+    }
+    if (popupTimers.positionTimer) {
+      clearTimeout(popupTimers.positionTimer);
+      popupTimers.positionTimer = null;
+    }
+    if (popupTimers.copyResetTimer) {
+      clearTimeout(popupTimers.copyResetTimer);
+      popupTimers.copyResetTimer = null;
+    }
   }
 
   /**
    * 关闭翻译弹窗
    */
   function closePopup() {
+    // 先清除所有定时器，防止异步回调访问已销毁的弹窗
+    clearAllPopupTimers();
+    
     if (currentPopup) {
       currentPopup.style.opacity = '0';
       currentPopup.style.transform = 'translateY(-10px)';
-      setTimeout(() => {
+      
+      // 使用管理的定时器
+      popupTimers.closeTimer = setTimeout(() => {
+        // 再次检查 currentPopup 是否存在
         if (currentPopup && currentPopup.parentNode) {
           currentPopup.parentNode.removeChild(currentPopup);
         }
         currentPopup = null;
+        popupTimers.closeTimer = null;
       }, 200);
     }
     isTranslating = false;
@@ -368,15 +402,21 @@
           已复制
         `;
         copyBtn.classList.add('qax-translator-btn-success');
-        setTimeout(() => {
-          copyBtn.innerHTML = `
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
-              <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
-            </svg>
-            复制译文
-          `;
-          copyBtn.classList.remove('qax-translator-btn-success');
+        
+        // 使用管理的定时器，并在回调中检查按钮是否仍在DOM中
+        popupTimers.copyResetTimer = setTimeout(() => {
+          // 检查按钮是否仍在 DOM 中（弹窗可能已被关闭）
+          if (copyBtn && copyBtn.isConnected) {
+            copyBtn.innerHTML = `
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+              </svg>
+              ${isChinese ? '复制原文' : '复制译文'}
+            `;
+            copyBtn.classList.remove('qax-translator-btn-success');
+          }
+          popupTimers.copyResetTimer = null;
         }, 2000);
       } catch (err) {
         console.error('[QAX Translator] 复制失败:', err);
@@ -386,6 +426,11 @@
     // 内容更新后，重新计算弹窗位置以避免被遮挡
     // 使用 requestAnimationFrame 确保 DOM 更新完成后再计算
     requestAnimationFrame(() => {
+      // 空值检查：确保 currentPopup 仍然存在
+      if (!currentPopup || !currentPopup.isConnected) {
+        return;
+      }
+      
       // 获取当前弹窗位置和尺寸
       const currentRect = currentPopup.getBoundingClientRect();
       const viewportHeight = window.innerHeight;
@@ -404,9 +449,19 @@
         currentPopup.style.top = `${newTop}px`;
         
         // 移除过渡效果，避免影响其他操作
-        setTimeout(() => {
-          currentPopup.style.transition = '';
+        // 使用管理的定时器，并在回调中检查 currentPopup 是否仍然存在
+        popupTimers.positionTimer = setTimeout(() => {
+          // 空值检查：确保 currentPopup 仍然存在
+          if (currentPopup && currentPopup.isConnected) {
+            currentPopup.style.transition = '';
+          }
+          popupTimers.positionTimer = null;
         }, 300);
+      }
+      
+      // 再次检查 currentPopup 是否仍然存在（可能在上述操作期间被关闭）
+      if (!currentPopup || !currentPopup.isConnected) {
+        return;
       }
       
       // 检查弹窗是否超出视口右侧
