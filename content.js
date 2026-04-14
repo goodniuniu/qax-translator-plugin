@@ -16,6 +16,7 @@
   let isTranslating = false;
   let currentPopup = null;
   let selectionTimeout = null;
+  let pluginEnabled = true;
   
   // 定时器管理 - 统一管理所有定时器，便于销毁时清理
   let popupTimers = {
@@ -632,6 +633,12 @@
    */
   function handleSelection(event) {
     console.log('[QAX Translator] handleSelection 被触发', event);
+
+    // 如果插件已禁用，直接返回
+    if (!pluginEnabled) {
+      console.log('[QAX Translator] 插件已禁用，忽略划词事件');
+      return;
+    }
     
     // 清除之前的定时器
     if (selectionTimeout) {
@@ -670,6 +677,20 @@
    */
   function init() {
     console.log('[QAX Translator] 开始初始化 content script');
+
+    // 读取插件开关状态
+    chrome.storage.sync.get(['enabled'], (data) => {
+      pluginEnabled = data.enabled !== false;
+      console.log('[QAX Translator] 插件开关状态:', pluginEnabled ? '开启' : '暂停');
+    });
+
+    // 监听开关状态变化
+    chrome.storage.onChanged.addListener((changes, area) => {
+      if (area === 'sync' && changes.enabled) {
+        pluginEnabled = changes.enabled.newValue !== false;
+        console.log('[QAX Translator] 插件开关状态更新:', pluginEnabled ? '开启' : '暂停');
+      }
+    });
     
     // 监听来自 background 的消息（右键菜单翻译）
     chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
@@ -677,6 +698,12 @@
       
       if (request.action === 'translateFromContextMenu') {
         console.log('[QAX Translator] 收到右键菜单翻译请求');
+
+        if (!pluginEnabled) {
+          console.log('[QAX Translator] 插件已禁用，忽略右键菜单翻译请求');
+          sendResponse({ success: false, error: '插件已暂停使用，请在设置中开启' });
+          return true;
+        }
         
         // 右键菜单场景下，选区可能已消失，使用默认位置
         // 使用屏幕中心位置显示弹窗

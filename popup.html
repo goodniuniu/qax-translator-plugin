@@ -295,6 +295,71 @@
       margin: 20px 0;
     }
 
+    /* ========== 开关样式 ========== */
+    .toggle-group {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px;
+      background: var(--bg-secondary);
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border);
+      margin-bottom: 16px;
+    }
+
+    .toggle-label {
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--text);
+    }
+
+    .toggle-switch {
+      position: relative;
+      width: 44px;
+      height: 24px;
+      background: var(--border);
+      border-radius: 12px;
+      cursor: pointer;
+      transition: background 0.3s ease;
+      flex-shrink: 0;
+    }
+
+    .toggle-switch.active {
+      background: var(--success);
+    }
+
+    .toggle-switch::after {
+      content: '';
+      position: absolute;
+      top: 2px;
+      left: 2px;
+      width: 20px;
+      height: 20px;
+      background: #fff;
+      border-radius: 50%;
+      transition: transform 0.3s ease;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+    }
+
+    .toggle-switch.active::after {
+      transform: translateX(20px);
+    }
+
+    /* ========== 作者信息 ========== */
+    .author-info {
+      text-align: center;
+      font-size: 12px;
+      color: var(--text-secondary);
+      padding: 12px;
+      background: var(--bg-secondary);
+      border-radius: var(--radius-sm);
+      margin-top: 8px;
+    }
+
+    .author-info p {
+      margin: 2px 0;
+    }
+
     /* ========== 隐藏类 ========== */
     .hidden {
       display: none !important;
@@ -317,6 +382,14 @@
 
   <!-- 内容 -->
   <div class="content">
+    <!-- 开关控制 -->
+    <div class="section">
+      <div class="toggle-group">
+        <span class="toggle-label">划词翻译</span>
+        <div id="enableToggle" class="toggle-switch active" title="点击切换"></div>
+      </div>
+    </div>
+
     <!-- 设置区域 -->
     <div class="section">
       <div class="section-title">
@@ -409,6 +482,14 @@
         </svg>
         🔧 打开诊断工具
       </button>
+    </div>
+
+    <!-- 作者信息 -->
+    <div class="section">
+      <div class="author-info">
+        <p>作者：GZC</p>
+        <p>联系电话：3710</p>
+      </div>
     </div>
   </div>
 

@@ -13,12 +13,14 @@ document.addEventListener('DOMContentLoaded', async () => {
   const saveBtn = document.getElementById('saveBtn');
   const statusContainer = document.getElementById('statusContainer');
   const statusContent = document.getElementById('statusContent');
+  const enableToggle = document.getElementById('enableToggle');
 
   // 默认配置
   const DEFAULT_CONFIG = {
     apiUrl: 'http://10.3.4.1:1025/v1',
     modelName: 'deepseekr1',
-    scenario: 'general'
+    scenario: 'general',
+    enabled: true
   };
 
   // 诊断日志
@@ -30,11 +32,50 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   /**
+   * 更新开关状态显示
+   */
+  function updateToggleUI(enabled) {
+    if (enabled) {
+      enableToggle.classList.add('active');
+      enableToggle.title = '点击暂停划词翻译';
+    } else {
+      enableToggle.classList.remove('active');
+      enableToggle.title = '点击开启划词翻译';
+    }
+  }
+
+  /**
+   * 切换插件开关状态
+   */
+  function toggleEnabled() {
+    const currentEnabled = enableToggle.classList.contains('active');
+    const newEnabled = !currentEnabled;
+
+    chrome.storage.sync.set({ enabled: newEnabled }, () => {
+      if (chrome.runtime.lastError) {
+        addLog('ERROR', `保存开关状态失败: ${chrome.runtime.lastError.message}`);
+        showStatus('error', `保存失败: ${chrome.runtime.lastError.message}`);
+      } else {
+        updateToggleUI(newEnabled);
+        addLog('INFO', `划词翻译已${newEnabled ? '开启' : '暂停'}`);
+        showStatus('success', `划词翻译已${newEnabled ? '开启' : '暂停'}`);
+
+        // 更新图标 badge
+        try {
+          chrome.runtime.sendMessage({ action: 'updateBadge', enabled: newEnabled });
+        } catch (e) {
+          // 忽略错误
+        }
+      }
+    });
+  }
+
+  /**
    * 加载保存的配置
    */
   function loadConfig() {
     addLog('INFO', '正在加载配置...');
-    chrome.storage.sync.get(['apiUrl', 'modelName', 'apiKey', 'scenario'], (data) => {
+    chrome.storage.sync.get(['apiUrl', 'modelName', 'apiKey', 'scenario', 'enabled'], (data) => {
       if (chrome.runtime.lastError) {
         addLog('ERROR', `加载配置失败: ${chrome.runtime.lastError.message}`);
         showStatus('error', `加载配置失败: ${chrome.runtime.lastError.message}`);
@@ -43,6 +84,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         modelNameInput.value = DEFAULT_CONFIG.modelName;
         apiKeyInput.value = '';
         scenarioInput.value = DEFAULT_CONFIG.scenario;
+        updateToggleUI(DEFAULT_CONFIG.enabled);
         return;
       }
       
@@ -51,6 +93,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       modelNameInput.value = (data && data.modelName) || DEFAULT_CONFIG.modelName;
       apiKeyInput.value = (data && data.apiKey) || '';
       scenarioInput.value = (data && data.scenario) || DEFAULT_CONFIG.scenario;
+      updateToggleUI(data && data.enabled !== false);
       addLog('INFO', '配置加载成功');
     });
   }
@@ -235,6 +278,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   // 事件监听
   saveBtn.addEventListener('click', saveConfig);
   testBtn.addEventListener('click', testConnection);
+  enableToggle.addEventListener('click', toggleEnabled);
 
   // 诊断按钮
   const diagnoseBtn = document.getElementById('diagnoseBtn');
