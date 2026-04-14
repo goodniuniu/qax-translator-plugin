@@ -679,18 +679,22 @@
     console.log('[QAX Translator] 开始初始化 content script');
 
     // 读取插件开关状态
-    chrome.storage.sync.get(['enabled'], (data) => {
-      pluginEnabled = data.enabled !== false;
-      console.log('[QAX Translator] 插件开关状态:', pluginEnabled ? '开启' : '暂停');
-    });
+    if (chrome.storage && chrome.storage.sync && chrome.storage.sync.get) {
+      chrome.storage.sync.get(['enabled'], (data) => {
+        pluginEnabled = (data && data.enabled) !== false;
+        console.log('[QAX Translator] 插件开关状态:', pluginEnabled ? '开启' : '暂停');
+      });
+    }
 
     // 监听开关状态变化
-    chrome.storage.onChanged.addListener((changes, area) => {
-      if (area === 'sync' && changes.enabled) {
-        pluginEnabled = changes.enabled.newValue !== false;
-        console.log('[QAX Translator] 插件开关状态更新:', pluginEnabled ? '开启' : '暂停');
-      }
-    });
+    if (chrome.storage && chrome.storage.onChanged) {
+      chrome.storage.onChanged.addListener((changes, area) => {
+        if (area === 'sync' && changes.enabled) {
+          pluginEnabled = changes.enabled.newValue !== false;
+          console.log('[QAX Translator] 插件开关状态更新:', pluginEnabled ? '开启' : '暂停');
+        }
+      });
+    }
     
     // 监听来自 background 的消息（右键菜单翻译）
     chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {

@@ -62,7 +62,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         // 更新图标 badge
         try {
-          chrome.runtime.sendMessage({ action: 'updateBadge', enabled: newEnabled });
+          chrome.runtime.sendMessage({ action: 'updateBadge', enabled: newEnabled }, function() {});
         } catch (e) {
           // 忽略错误
         }
